@@ -18,6 +18,9 @@ import android.graphics.drawable.ColorDrawable;
 import android.net.VpnService;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
+import android.os.Message;
 import android.util.Log;
 import android.view.View;
 import android.view.Window;
@@ -65,18 +68,18 @@ public class MainActivity extends Activity {
 
     private boolean autoSmoothSroll = false;
 
-    private BroadcastReceiver receiver = new BroadcastReceiver() {
+    private Handler mHandler = new Handler(Looper.getMainLooper()){
         @Override
-        public void onReceive(Context context, Intent intent) {
-            if (CustomAction.BROADCAST_ACTION.equals(intent.getAction())) {
-                PacketItem item = (PacketItem) intent.getSerializableExtra("packet");
+        public void handleMessage(@NonNull Message msg) {
+            if(msg.what == CustomAction.BROADCAST_ACTION){
+                PacketItem item = (PacketItem) msg.getData().getSerializable("packet");
                 if(item != null){
                     packetListAdapter.addItem(item);
                     if(autoSmoothSroll) packetListView.smoothScrollToPosition(items.size() - 1);// 自动滑到最后一个
                     // Log.d(MyVpnService.TAG, "add success");
                 }
-            }else if(CustomAction.ERROR_STOP_VPN_ACTION.equals(intent.getAction())){
-                toast("服务异常: " + intent.getStringExtra("error"));
+            }else if(msg.what == CustomAction.ERROR_STOP_VPN_ACTION){
+                toast("服务异常: " + msg.getData().getString("error"));
                 isRunning = false;
                 updateButton(true);
             }
@@ -96,7 +99,6 @@ public class MainActivity extends Activity {
     protected void onDestroy() {
         Log.d(MyVpnService.TAG, "ac::onDestroy: " + items.size());
         super.onDestroy();
-        unregisterReceiver(receiver);
     }
 
     @Override
@@ -161,6 +163,7 @@ public class MainActivity extends Activity {
                         return;
                     }
                     MainActivity.this.toast("启动...");
+                    MyVpnService.mActivityHandler = mHandler;
                     MyVpnService.TARGET_PACKAGE_NAME = packageName;
                     MyVpnService.PACKET_FILTER = 0;
                     // checked
@@ -185,13 +188,6 @@ public class MainActivity extends Activity {
                 showDetailDialog(MainActivity.this, item);
             }
         });
-
-        // 注册广播器
-        IntentFilter filter = new IntentFilter();
-        filter.addAction(CustomAction.BROADCAST_ACTION);
-        filter.addAction(CustomAction.ERROR_STOP_VPN_ACTION);
-        registerReceiver(receiver, filter, RECEIVER_NOT_EXPORTED);
-        // registerReceiver(receiver, filter);
     }
 
     public void updateButton(boolean enable){

@@ -3,7 +3,10 @@ package com.mgh.mccatcher;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.net.VpnService;
+import android.os.Bundle;
+import android.os.Handler;
 import android.os.IBinder;
+import android.os.Message;
 import android.os.ParcelFileDescriptor;
 import android.util.Log;
 
@@ -11,6 +14,7 @@ import com.mgh.mccatcher.adapter.PacketItem;
 import com.mgh.mccatcher.network.IpProtocol;
 import com.mgh.mccatcher.network.Ipv4Packet;
 import com.mgh.mccatcher.network.RakNetPacketInfo;
+import com.mgh.mccatcher.utils.ExceptionMsgUtil;
 
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -48,6 +52,8 @@ public class MyVpnService extends VpnService {
     private Selector selector = null;
     private Map<String, DatagramChannel> channels = null;
 
+    public static Handler mActivityHandler = null;
+
 
     @Override
     public IBinder onBind(Intent intent) {
@@ -55,12 +61,17 @@ public class MyVpnService extends VpnService {
     }
 
     @Override
+    public void onDestroy() {
+        super.onDestroy();
+        mActivityHandler = null;
+    }
+
+    @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        if(intent!=null && CustomAction.USER_STOP_VPN_ACTION.equals(intent.getAction())){
+        if(intent != null && CustomAction.USER_STOP_VPN_ACTION.equals(intent.getAction())){
             stopVpn();
             return START_NOT_STICKY;
         }
-
         if(executorService == null){
             VpnService.Builder builder = new VpnService.Builder();
             builder.setSession("捕获MC数据包")
@@ -84,10 +95,13 @@ public class MyVpnService extends VpnService {
                     executorService.execute(this::catchFromLocal);
                 } catch (IOException e) {
                     Log.e(TAG, e.getMessage(), e);
+                    stopVpn();
+                    closeService(e);
                 }
             }else{
                 Log.d(TAG, "创建虚拟接口失败");
                 stopVpn();
+                closeService("创建虚拟接口失败");
                 return START_NOT_STICKY;
             }
         }
@@ -155,7 +169,7 @@ public class MyVpnService extends VpnService {
                 // 异常打断vpn
                 Log.e(TAG, e.getMessage(), e);
                 stopVpn();
-                closeService(e.getMessage());
+                closeService(e);
             }
         } finally {
             Log.d(TAG, "关闭catchFromLocal");
@@ -219,58 +233,70 @@ public class MyVpnService extends VpnService {
                 // 异常打断vpn
                 Log.e(TAG, e.getMessage(), e);
                 stopVpn();
-                closeService(e.getMessage());
+                closeService(e);
             }
         } finally {
             Log.d(TAG, "关闭catchFromRemote");
         }
     }
 
+    public void closeService(String data){
+        Message msg = mActivityHandler.obtainMessage(CustomAction.ERROR_STOP_VPN_ACTION);
+        Bundle bundle = new Bundle();
+        bundle.putString("error", data);
+        msg.setData(bundle);
+        mActivityHandler.sendMessage(msg);
+    }
 
-    public void closeService(String error){
-        Intent intent = new Intent(CustomAction.ERROR_STOP_VPN_ACTION);
-        intent.putExtra("error", error);
-        sendBroadcast(intent);
+    public void closeService(Exception ex){
+        Message msg = mActivityHandler.obtainMessage(CustomAction.ERROR_STOP_VPN_ACTION);
+        Bundle bundle = new Bundle();
+        bundle.putString("error", ExceptionMsgUtil.transformErrorMsg(ex));
+        msg.setData(bundle);
+        mActivityHandler.sendMessage(msg);
     }
 
     public void logPacket(Ipv4Packet packet){
-        String title = "";
-        if(DNS_SERVER.equals(packet.getDstAddress().getHostAddress()) ||
-                DNS_SERVER.equals(packet.getSrcAddress().getHostAddress())){
-            if((PACKET_FILTER & CustomFilter.DNS_FILTER) != 0){
-                return;
-            }
-            title = "DNS";
-        }else{
-            RakNetPacketInfo info = new RakNetPacketInfo(packet.getUserData());
-            if(((PACKET_FILTER & CustomFilter.ACK_NACK_FILTER) != 0) && info.isAckOrNack()){
-                return;
-            }
-            if(((PACKET_FILTER & CustomFilter.CONNECTED_PING_PONG_FILTER) != 0) && info.isPingPong()){
-                return;
-            }
-            title = info.getName();
-        }
-
-        PacketItem item = new PacketItem();
-        item.setTitle(title);
-        if (VIRTUAL_ADDRESS.equals(packet.getSrcAddress().getHostAddress())) {
-            item.setFrom("127.0.0.1:" + packet.getSrcPort());
-        }else{
-            item.setFrom(packet.getSrcSocketAddress().toString());
-        }
-        if(VIRTUAL_ADDRESS.equals(packet.getDstAddress().getHostAddress())){
-            item.setTo("127.0.0.1:" + packet.getDstPort());
-        }else{
-            item.setTo(packet.getDstSocketAddress().toString());
-        }
-        item.setData(packet.getUserData());
-
-        Intent intent = new Intent(CustomAction.BROADCAST_ACTION);
-        intent.putExtra("packet", item);
-        sendBroadcast(intent);
-
         //Log.i(TAG, "logPacket");
+        if(mActivityHandler != null){
+            String title = "";
+            if(DNS_SERVER.equals(packet.getDstAddress().getHostAddress()) ||
+                    DNS_SERVER.equals(packet.getSrcAddress().getHostAddress())){
+                if((PACKET_FILTER & CustomFilter.DNS_FILTER) != 0){
+                    return;
+                }
+                title = "DNS";
+            }else{
+                RakNetPacketInfo info = new RakNetPacketInfo(packet.getUserData());
+                if(((PACKET_FILTER & CustomFilter.ACK_NACK_FILTER) != 0) && info.isAckOrNack()){
+                    return;
+                }
+                if(((PACKET_FILTER & CustomFilter.CONNECTED_PING_PONG_FILTER) != 0) && info.isPingPong()){
+                    return;
+                }
+                title = info.getName();
+            }
+
+            PacketItem item = new PacketItem();
+            item.setTitle(title);
+            if (VIRTUAL_ADDRESS.equals(packet.getSrcAddress().getHostAddress())) {
+                item.setFrom("127.0.0.1:" + packet.getSrcPort());
+            }else{
+                item.setFrom(packet.getSrcSocketAddress().toString());
+            }
+            if(VIRTUAL_ADDRESS.equals(packet.getDstAddress().getHostAddress())){
+                item.setTo("127.0.0.1:" + packet.getDstPort());
+            }else{
+                item.setTo(packet.getDstSocketAddress().toString());
+            }
+            item.setData(packet.getUserData());
+
+            Message message = mActivityHandler.obtainMessage(CustomAction.BROADCAST_ACTION);
+            Bundle bundle = new Bundle();
+            bundle.putSerializable("packet", item);
+            message.setData(bundle);
+            mActivityHandler.sendMessage(message);
+        }
     }
 
     private void closeChannel(DatagramChannel channel){
