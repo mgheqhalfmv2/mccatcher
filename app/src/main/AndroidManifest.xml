@@ -29,6 +29,9 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".ErrorActivity"/>
+
         <service
             android:name=".MyVpnService"
             android:permission="android.permission.BIND_VPN_SERVICE"

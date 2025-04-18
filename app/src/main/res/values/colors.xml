@@ -9,4 +9,5 @@
     <color name="white">#FFFFFFFF</color>
     <color name="start_btn_color">#81C784</color>
     <color name="close_btn_color">#66BB6A </color>
+    <color name="red">#FF0014</color>
 </resources>

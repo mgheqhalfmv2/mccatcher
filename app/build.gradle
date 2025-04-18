@@ -8,8 +8,9 @@ android {
 
     defaultConfig {
         applicationId "com.mgh.mccatcher"
-        minSdk 29
-        targetSdk 35
+        minSdk 24
+        //noinspection ExpiredTargetSdkVersion
+        targetSdk 26
         versionCode 1
         versionName "1.0"
 

@@ -1,17 +1,23 @@
 package com.mgh.mccatcher.utils;
 
+import java.time.LocalDateTime;
+
 public class ExceptionMsgUtil {
 
     public static String transformErrorMsg(Exception ex){
         StringBuilder sb = new StringBuilder();
-        sb.append("msg: ").append(ex.getMessage());
+        sb.append("时间：").append(LocalDateTime.now());
+        sb.append("\nmsg: ").append(ex.getMessage());
         sb.append("\ntype: ").append(ex);
-        StackTraceElement trace = ex.getStackTrace()[0];
-        sb.append("\nclass: ").append(trace.getClassName());
-        sb.append("\nfile: ").append(trace.getFileName());
-        sb.append("\nmethod: ").append(trace.getMethodName());
-        sb.append("\nline: ").append(trace.getLineNumber());
-
+        StackTraceElement[] traces = ex.getStackTrace();
+        for(int i =0;i<traces.length;++i){
+            sb.append(i).append('-').append(traces.length);
+            sb.append("\nclass: ").append(traces[i].getClassName());
+            sb.append("\nfile: ").append(traces[i].getFileName());
+            sb.append("\nmethod: ").append(traces[i].getMethodName());
+            sb.append("\nline: ").append(traces[i].getLineNumber());
+            sb.append("\n");
+        }
         return sb.toString();
     }
 

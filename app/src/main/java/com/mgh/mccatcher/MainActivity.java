@@ -1,14 +1,11 @@
 package com.mgh.mccatcher;
 
-import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.Dialog;
-import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
-import android.content.IntentFilter;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
@@ -16,7 +13,6 @@ import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
 import android.net.VpnService;
-import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -79,9 +75,15 @@ public class MainActivity extends Activity {
                     // Log.d(MyVpnService.TAG, "add success");
                 }
             }else if(msg.what == CustomAction.ERROR_STOP_VPN_ACTION){
-                toast("服务异常: " + msg.getData().getString("error"));
+                // toast("服务异常: " + msg.getData().getString("error"));
                 isRunning = false;
                 updateButton(true);
+
+                String errorMsg = msg.getData().getString("error");
+                Intent errorIntent = new Intent(MainActivity.this, ErrorActivity.class);
+                Bundle bundle = new Bundle();
+                bundle.putString("error", errorMsg);
+                startActivity(errorIntent, bundle);
             }
         }
     };
@@ -220,21 +222,20 @@ public class MainActivity extends Activity {
     }
 
     public void showDetailDialog(Context context, PacketItem item) {
-        // 创建弹窗
         Dialog dialog = new Dialog(context);
         dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
         dialog.setContentView(R.layout.packet_detail_dialog);
 
-        // 设置弹窗宽度
+
         Window window = dialog.getWindow();
         if (window != null) {
+            // 设置弹窗宽度
             window.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
             WindowManager.LayoutParams params = window.getAttributes();
             params.width = (int)(context.getResources().getDisplayMetrics().widthPixels * 0.9);
             window.setAttributes(params);
         }
 
-        // 绑定视图
         TextView tvTitle = dialog.findViewById(R.id.tv_detail_title);
         TextView tvFrom = dialog.findViewById(R.id.tv_detail_from);
         TextView tvTo = dialog.findViewById(R.id.tv_detail_to);
@@ -242,20 +243,19 @@ public class MainActivity extends Activity {
         TextView tvByteData = dialog.findViewById(R.id.tv_byte_data);
         Button btnClose = dialog.findViewById(R.id.detail_btn_close);
 
-        // 设置数据
         tvTitle.setText(item.getTitle());
         tvFrom.setText(item.getFrom());
         tvTo.setText(item.getTo());
         tvSize.setText(item.getSize() + "字节");
         tvByteData.setText(item.getDataHexString());
-        // 关闭按钮点击事件
+
         btnClose.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 dialog.dismiss();
             }
         });
-        // 显示弹窗
+
         dialog.show();
     }
 
