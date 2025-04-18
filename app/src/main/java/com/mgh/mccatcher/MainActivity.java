@@ -270,7 +270,7 @@ public class MainActivity extends Activity {
         for (PackageInfo pi : packages) {
             if ((pi.applicationInfo.flags & ApplicationInfo.FLAG_SYSTEM) == 0) {
                 // 快速查找mc
-                if(pi.packageName.startsWith("com.mojang"))
+                // if(pi.packageName.startsWith("com.mojang"))
                     filteredPackages.add(pi);
             }
         }
